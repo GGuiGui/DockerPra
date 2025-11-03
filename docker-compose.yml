@@ -1,0 +1,72 @@
+version: "3.9"
+
+services:
+  cms-service1:
+    image: cms-service
+    container_name: cms-service1
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./cms-service1/webapps:/usr/local/tomcat/webapps
+      - ./cms-service1/server.xml:/usr/local/tomcat/conf/server.xml:ro
+    environment:
+      - JAVA_OPTS=-Xms1024m -Xmx2048m -Djava.security.egd=file:/dev/./urandom
+        -XX:+UseG1GC
+        -XX:+UseContainerSupport
+    networks:
+      - my-network
+
+  cms-service2:
+    image: cms-service
+    container_name: cms-service2
+    ports:
+      - "8082:8080"
+    volumes:
+      - ./cms-service2/webapps:/usr/local/tomcat/webapps
+      - ./cms-service2/server.xml:/usr/local/tomcat/conf/server.xml:ro
+    environment:
+      - JAVA_OPTS=-Xms1024m -Xmx2048m -Djava.security.egd=file:/dev/./urandom
+        -XX:+UseG1GC
+        -XX:+UseContainerSupport
+    networks:
+      - my-network
+
+  cms-web:
+    image: cms-web
+    container_name: cms-web
+    ports:
+      - "80:80"
+    volumes:
+      - ./cms-web/source/:/usr/share/nginx/html:cached
+      - ./cms-web/nginx.conf:/nginx/conf/nginx.conf:ro  # 사이트별 설정 파일
+    user: root
+    depends_on:
+      - cms-service1
+      - cms-service2
+    networks:
+      - my-network
+
+  nginx-stream:
+    image: nginx-vod
+    container_name: nginx-stream
+    ports:
+      - "1935:1935"   # RTMP 스트리밍
+      - "8081:8080"   # HLS HTTP
+    volumes:
+      - ./nginx-stream/nginx.conf:/nginx/conf/nginx.conf:ro  # 사이트별 설정 파일
+      - ./nginx-stream/mount_storage.txt:/nginx/conf/mount_storage.txt:rw
+    stdin_open: true
+    tty: true
+    cap_add:
+      - SYS_ADMIN
+    devices:
+      - /dev/fuse:/dev/fuse
+    networks:
+      - my-network
+
+networks:
+  my-network:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: br-fast
+    
